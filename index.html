@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A private, browser-only password quality learning tool.">
+  <title>Password Safety Checker</title>
+  <style>
+    :root { color-scheme:light; --bg:#eee8dc; --panel:#f8f4eb; --line:#c9bdac; --text:#28231e; --muted:#71685e; --accent:#a84532; --warn:#a56a15; --bad:#b23b3b; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; padding:40px 18px; background:repeating-linear-gradient(0deg,transparent 0 39px,#51463c0a 40px),var(--bg); color:var(--text); font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif; }
+    main { max-width:760px; margin:auto; }
+    header { margin:0 0 25px; }
+    .eyebrow { color:var(--accent); text-transform:uppercase; letter-spacing:.15em; font:700 .75rem/1.4 ui-monospace,SFMono-Regular,monospace; }
+    h1 { margin:8px 0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(2rem,6vw,3.2rem); line-height:1.08; letter-spacing:-.04em; }
+    header p,.note { color:var(--muted); }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:clamp(20px,5vw,34px); box-shadow:2px 3px 0 #3c2d1b0a,0 12px 32px #3c2d1b12; }
+    label { display:block; font-weight:650; margin-bottom:9px; }
+    .input-row { display:flex; gap:9px; }
+    input { flex:1; min-width:0; padding:14px 15px; color:var(--text); background:#fffdf8; border:1px solid var(--line); border-radius:2px; font:inherit; }
+    input:focus,button:focus-visible { outline:3px solid #79e0c388; outline-offset:2px; }
+    button { border:1px solid var(--line); border-radius:2px; padding:0 16px; color:var(--text); background:#eee8dc; font:inherit; font-weight:650; cursor:pointer; }
+    button:hover { background:#e4dacc; }
+    .meter-head { display:flex; justify-content:space-between; gap:12px; margin:22px 0 8px; font-weight:650; }
+    .meter { height:8px; overflow:hidden; border-radius:0; background:#ded5c8; }
+    .meter span { display:block; width:0; height:100%; background:var(--bad); transition:width .2s,background .2s; }
+    .result { margin:12px 0 0; color:var(--muted); }
+    ul { display:grid; gap:9px; list-style:none; margin:24px 0 0; padding:0; }
+    li { display:flex; gap:10px; align-items:flex-start; color:var(--muted); }
+    li::before { content:'○'; color:#8a7d6e; font-weight:800; }
+    li.pass { color:var(--text); } li.pass::before { content:'✓'; color:var(--accent); }
+    .note { font-size:.88rem; margin:20px 0 0; }
+    @media(max-width:480px) { .input-row { flex-wrap:wrap; } .input-row button { min-height:46px; flex:1; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Security learning project · 01</div>
+      <h1>Password Safety Checker</h1>
+      <p>See how length and predictable patterns affect a password's estimated strength.</p>
+    </header>
+    <section class="card" aria-labelledby="password-label">
+      <label id="password-label" for="password">Try a password</label>
+      <div class="input-row">
+        <input id="password" type="password" autocomplete="off" spellcheck="false" placeholder="Type a test password" aria-describedby="privacy">
+        <button id="toggle" type="button" aria-pressed="false">Show</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+      <div class="meter-head"><span id="rating">Waiting for input</span><span id="bits">0 characters</span></div>
+      <div class="meter" role="progressbar" aria-label="Estimated password strength" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fill"></span></div>
+      <p class="result" id="summary" aria-live="polite">Enter a test password to see feedback.</p>
+      <ul id="checks">
+        <li data-check="length">At least 14 characters</li>
+        <li data-check="variety">Uses more than one character type</li>
+        <li data-check="common">Avoids common words and sequences</li>
+        <li data-check="unique">Avoids long repeated runs</li>
+      </ul>
+      <p class="note" id="privacy">Privacy: this page checks input in your browser only. It does not save or transmit it. For safety, use a made-up test password.</p>
+    </section>
+  </main>
+  <script>
+    const field = document.querySelector('#password');
+    const fill = document.querySelector('#fill');
+    const rating = document.querySelector('#rating');
+    const bits = document.querySelector('#bits');
+    const summary = document.querySelector('#summary');
+    const bar = document.querySelector('.meter');
+    const common = /password|qwerty|letmein|welcome|admin|123456|abc123/i;
+    const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/];
+    function update() {
+      const value = field.value;
+      const lengthOK = value.length >= 14;
+      const varietyOK = classes.filter(re => re.test(value)).length >= 2;
+      const commonOK = !common.test(value) && !/(0123|1234|abcd|qwer)/i.test(value);
+      const uniqueOK = !/(.)\1{3,}/.test(value);
+      const passed = [lengthOK, varietyOK, commonOK, uniqueOK].filter(Boolean).length;
+      document.querySelector('[data-check="length"]').classList.toggle('pass', lengthOK);
+      document.querySelector('[data-check="variety"]').classList.toggle('pass', varietyOK);
+      document.querySelector('[data-check="common"]').classList.toggle('pass', commonOK && value.length > 0);
+      document.querySelector('[data-check="unique"]').classList.toggle('pass', uniqueOK && value.length > 0);
+      const score = value ? Math.min(100, Math.round((value.length / 22) * 60 + (passed / 4) * 40)) : 0;
+      fill.style.width = score + '%';
+      fill.style.background = score >= 75 ? 'var(--accent)' : score >= 45 ? 'var(--warn)' : 'var(--bad)';
+      bar.setAttribute('aria-valuenow', score);
+      rating.textContent = !value ? 'Waiting for input' : score >= 75 ? 'Stronger pattern' : score >= 45 ? 'Could be stronger' : 'Weak pattern';
+      bits.textContent = value.length + (value.length === 1 ? ' character' : ' characters');
+      summary.textContent = !value ? 'Enter a test password to see feedback.' : 'This is a simple educational estimate, not a guarantee of security.';
+    }
+    field.addEventListener('input', update);
+    document.querySelector('#toggle').addEventListener('click', event => {
+      const show = field.type === 'password'; field.type = show ? 'text' : 'password';
+      event.currentTarget.textContent = show ? 'Hide' : 'Show'; event.currentTarget.setAttribute('aria-pressed', String(show)); field.focus();
+    });
+    document.querySelector('#clear').addEventListener('click', () => { field.value = ''; update(); field.focus(); });
+  </script>
+</body>
+</html>
